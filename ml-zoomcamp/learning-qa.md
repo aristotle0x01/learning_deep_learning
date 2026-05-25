@@ -414,7 +414,112 @@ LLM 更适合做建模助手：
 5. 普通 LLM prompt 直接预测：不推荐作为主模型
 ```
 
-### 6. 学习主线总结
+## 6. Homework 2025 细节
+
+#### Q30: `engine_displacement`、`model_year` 这类数值特征需要额外处理吗？
+
+对 2025 cohort 的 02-regression homework，按题目要求不需要额外缩放、中心化或转成 `age`。题目明确要求使用这些列：
+
+```text
+engine_displacement
+horsepower
+vehicle_weight
+model_year
+fuel_efficiency_mpg
+```
+
+所以 baseline 应该直接使用：
+
+```python
+base = ['engine_displacement', 'horsepower', 'vehicle_weight', 'model_year']
+```
+
+例如 `model_year -> age = 2023 - model_year` 在直觉上没问题，但这属于额外 feature engineering。对普通无正则线性回归，在有 intercept 的情况下，`model_year` 和 `age` 这种线性平移通常预测近似等价；但对 ridge regularization，特征平移会改变权重惩罚方式，从而影响结果。
+
+为了对齐 homework 选项，应先按题意使用原始 `model_year`。真实项目里可以再实验：
+
+```text
+model_year -> age
+数值标准化
+非线性变换
+交互特征
+```
+
+但这些实验都应该通过 validation RMSE 判断是否有效。
+
+#### Q31: 如果用 mean 填充缺失值，validation/test 应该用各自的 mean 吗？
+
+不应该。只要填充值是从数据中统计出来的，就必须只从 training set 计算。
+
+正确写法：
+
+```python
+mean_hp = df_train['horsepower'].mean()
+
+X_train = prepare_X(df_train, mean_hp)
+X_val = prepare_X(df_val, mean_hp)
+X_test = prepare_X(df_test, mean_hp)
+```
+
+错误写法：
+
+```python
+X_val = prepare_X(df_val, df_val['horsepower'].mean())
+X_test = prepare_X(df_test, df_test['horsepower'].mean())
+```
+
+原因是后者偷看了 validation/test 的整体统计信息，属于 data leakage。真实预测时，新数据的整体均值通常是未知的，预处理参数必须从训练集学到，再应用到 validation/test。
+
+如果填 0：
+
+```python
+X_val = prepare_X(df_val, 0)
+X_test = prepare_X(df_test, 0)
+```
+
+则没有这个问题，因为 `0` 是固定规则，不是从 validation/test 统计出来的。
+
+#### Q32: 为什么最终 test 前要合并 train 和 validation？
+
+因为 validation set 的职责是帮助做选择，例如：
+
+```text
+选择缺失值填 0 还是填 mean
+选择 regularization 参数 r
+比较不同特征工程方案
+```
+
+当方案已经确定后，validation set 的调参任务完成。此时可以把 train 和 validation 合并，用更多数据重新训练最终模型：
+
+```python
+df_full_train = pd.concat([df_train, df_val])
+df_full_train = df_full_train.reset_index(drop=True)
+
+y_full_train = np.concatenate([y_train, y_val])
+
+X_full_train = prepare_X(df_full_train, 0)
+w0, w = train_linear_regression_reg(X_full_train, y_full_train, r=0.001)
+```
+
+然后只在 test set 上做最终评估：
+
+```python
+X_test = prepare_X(df_test, 0)
+y_pred = w0 + X_test.dot(w)
+
+rmse(y_test, y_pred)
+```
+
+不能把 test 也合并进训练，因为 test 的作用是模拟从未见过的新数据，做最终验收。如果反复用 test 结果改模型，test 就退化成新的 validation set，最终评估会偏乐观。
+
+一句话：
+
+```text
+validation 用来选择方案；方案确定后可以加入训练。
+test 只用于最终评估，不能参与训练或调参。
+```
+
+### 7. 学习主线总结
 
 这个 Chapter 2 的核心主线是：
 
