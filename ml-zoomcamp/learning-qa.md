@@ -541,3 +541,143 @@ test 只用于最终评估，不能参与训练或调参。
 ```text
 这章不是只在学线性回归公式，而是在学一个完整的 tabular regression 工作流。
 ```
+
+## 03-classification
+
+### 1. DictVectorizer：fit vs transform
+
+```python
+dv = DictVectorizer(sparse=False)
+
+# train：fit + transform，决定列名和顺序
+X_train = dv.fit_transform(df_train[...].to_dict(orient='records'))
+
+# val / test：只用 transform，用同一套列
+X_val   = dv.transform(df_val[...].to_dict(orient='records'))
+X_test  = dv.transform(df_test[...].to_dict(orient='records'))
+```
+
+`fit` = 扫描数据，记住所有 category=value 组合（45 列固定不再变）。  
+`transform` = 按这些列逐行填值。  
+val/test 如果 fit 了，列数可能不同，模型直接报错。
+
+`to_dict(orient='records')` 把每行转成一个 dict：`{'contract': 'two_year', 'tenure': 72, ...}`，DictVectorizer 逐 key-value 编码。
+
+### 2. 编码规则
+
+| 值的类型 | 处理 |
+|---|---|
+| categorical（`contract='two_year'`） | one-hot：该列=1，同类其他=0 |
+| numerical（`tenure=72`） | 原样保留 |
+
+DictVectorizer 不丢参考类别（和 `pd.get_dummies(drop_first=True)` 不同）。每个 category 值都有单独一列，信息冗余但对有正则化的线性模型不是大问题。
+
+### 3. 截距和权重
+
+```python
+w0 = model.intercept_[0]   # 截距，shape (1,) 的数组取第一个
+w  = model.coef_[0]        # 权重，shape (1, n) 取第一行
+```
+
+二分类只有一个决策边界，但 sklearn 为了 API 统一始终返回数组。
+
+### 4. Mutual Information vs Correlation
+
+| | Correlation | Mutual Information |
+|---|---|---|
+| 捕获的关系 | 仅线性 | 任意（线性、非线性） |
+| 引用函数 | `.corr()` / `.corrwith()` | `mutual_info_score`（离散）/ `mutual_info_classif`（连续） |
+| 适用特征 | 数值型 | 数值型 + 类别型均可 |
+
+MI 核心公式：`I(X;Y) = H(Y) - H(Y|X)` — 知道 X 后 Y 的不确定性减少了多少。知道 contract 减少的 uncertainty 比知道 gender 多得多。
+
+contract MI 最高的原因：MI 综合了**效应量 × 覆盖人群**——electronic_check 风险比虽高但只覆盖 33% 客户，contract 覆盖全量且各类别 churn rate 差异大。
+
+### 5. 特征尺度和 solver 的坑
+
+这是 homework Q4-Q6 的核心坑。
+
+`annual_income`（~40000-120000）和其他特征（0-10）差 4-5 个数量级。
+
+```python
+# liblinear + 未缩放：acc = 0.70，调 C 完全没用
+model = LogisticRegression(solver='liblinear', C=1.0, random_state=42)
+
+# lbfgs + 未缩放：acc = 0.85，数值稳定性更好
+model = LogisticRegression(solver='lbfgs', max_iter=1000, random_state=42)
+```
+
+不同 C 全给出相同结果的原因：特征尺度差距太大，大值特征的梯度信号 ~1e-5，优化器根本不动它。正则化在尺度瓶颈面前无效。
+
+**解法**：one-hot 之前对 numerical 做 StandardScaler。
+
+### 6. StandardScaler 的正确用法
+
+```python
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+df_train[numerical] = scaler.fit_transform(df_train[numerical])
+df_val[numerical]   = scaler.transform(df_val[numerical])
+df_test[numerical]  = scaler.transform(df_test[numerical])
+
+# 然后再做 DictVectorizer
+X_train = dv.fit_transform(df_train[...].to_dict(orient='records'))
+```
+
+只标准化 numerical 列，categorical 的 one-hot（0/1）不需要。  
+和 DictVectorizer 一样：**fit on train only，transform on everything**。
+
+### 7. 小模型近似大模型
+
+contract + tenure + monthlycharges（3 特征 → 5 one-hot 列）精度 79.6%，全量 45 特征的精度 80.6%。差距不到 1pp。
+
+```text
+可解释性 > 特征堆砌。能用三五个变量解释清楚的模型，
+比 45 维黑箱更有价值。
+```
+
+### 8. 模型上线用法
+
+```python
+customer = dicts_test[-1]                      # 取一个客户
+X_small = dv.transform([customer])             # 包一层 [list]，用同一套 dv 编码
+prob = model.predict_proba(X_small)[0, 1]     # predict_proba 返回 (n, 2)，第 1 列是 P(churn)
+```
+
+### 9. 逻辑回归 = 线性回归 + sigmoid
+
+看代码：
+
+```python
+def linear_regression(xi):
+    result = w0
+    for j in range(len(w)):
+        result = result + xi[j] * w[j]
+    return result                    # 任意实数
+
+def logistic_regression(xi):
+    score = w0
+    for j in range(len(w)):
+        score = score + xi[j] * w[j]
+    result = sigmoid(score)
+    return result                    # 压缩到 [0, 1]，概率
+```
+
+唯一的区别是套了一层 sigmoid。逻辑回归名字里的 "regression" 没叫错——底层做的确实就是线性回归，sigmoid 只负责把实数映射成概率。
+
+这就是为什么 02 章先学线性回归再学分类：模型结构没变，变的只是输出层的解释方式。线性回归的 score 直接当预测值用，逻辑回归把 score 送进 sigmoid 变成 P(churn)。
+
+### 学习主线
+
+```text
+1. 数据清洗（列名统一、缺失值、类型转换）
+2. EDA（churn rate、risk ratio、mutual info、correlation）
+3. 切分 train/val/test
+4. DictVectorizer 做 one-hot
+5. Logistic regression 训练
+6. 模型解释（系数含义、小模型）
+7. 最终在 test set 评估
+8. 对单条数据做预测（生产环境用法）
+9. 理解逻辑回归本质 = 线性回归 + sigmoid
+```
