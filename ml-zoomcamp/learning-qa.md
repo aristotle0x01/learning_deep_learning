@@ -681,3 +681,127 @@ def logistic_regression(xi):
 8. 对单条数据做预测（生产环境用法）
 9. 理解逻辑回归本质 = 线性回归 + sigmoid
 ```
+
+## 04-evaluation 核心问答
+
+### Q1: Accuracy / Precision / Recall 分别看什么？
+
+```text
+accuracy  = (TP + TN) / total         # 总体预测对的比例
+precision = TP / (TP + FP)            # 预测为正的人里，多少真为正
+recall    = TP / (TP + FN)            # 真实为正的人里，多少被抓到
+FPR       = FP / (FP + TN)            # 真实为负的人里，多少被误报为正
+TPR       = recall
+```
+
+类别不均衡时，accuracy 可能误导。比如全预测负类也能有不低准确率。
+
+### Q2: `Counter(y_pred >= 1.0)` 和 `1 - y_val.mean()` 是什么？
+
+`y_pred >= 1.0` 基本全是 `False`，等价于 dummy model：所有人都预测为负类。
+
+若 `y_val` 是 0/1：
+
+```python
+y_val.mean()      # 正类比例
+1 - y_val.mean()  # 负类比例，也就是全预测负类的 accuracy
+```
+
+### Q3: AUC 是什么面积？
+
+AUC 是 ROC 曲线下面积，不是两条曲线之间的“豆夹形状”。
+
+```text
+x 轴 = FPR
+y 轴 = TPR
+AUC = ∫ TPR d(FPR)
+```
+
+直觉：随机抽一个正样本和一个负样本，模型给正样本更高分的概率。
+
+```text
+AUC = 1.0 完美排序
+AUC = 0.5 随机排序
+AUC < 0.5 方向反了
+```
+
+### Q4: ROC/AUC 只适合 Logistic Regression 吗？
+
+不是。只要是二分类模型，并能输出 score/probability，就能算：
+
+```text
+ROC/AUC
+precision
+recall
+accuracy
+F1
+confusion matrix
+```
+
+适用于 logistic regression、decision tree、random forest、boosting、NN 等。
+
+AUC 看整体排序能力；precision/recall/accuracy 看某个 threshold 下的决策效果。实际项目通常都要看。
+
+### Q5: 2025 HW04 的 Q1 “use numerical variable as score” 是什么意思？
+
+数据是 `course_lead_scoring.csv`，目标是：
+
+```text
+converted
+```
+
+意思是：不训练模型，直接把每个 numerical column 当成预测分数，和 `converted` 算 AUC。
+
+```python
+for col in numerical:
+    auc = roc_auc_score(y_train, df_train[col])
+    if auc < 0.5:
+        auc = roc_auc_score(y_train, -df_train[col])
+    print(col, auc)
+```
+
+这里 `df_train[col]` 是 score，不一定是概率，也不需要归一化。AUC 只看排序。
+
+### Q6: HW04 Q2 训练 LogisticRegression 要不要 scale？
+
+这份 homework 实测需要 scale numerical，才能得到选项里的约 `0.92`。
+
+```text
+未 scale AUC ≈ 0.817
+scale 后 AUC ≈ 0.921
+```
+
+原因：`annual_income` 和其他数值特征尺度差很多，LogisticRegression + 正则化对尺度敏感。
+
+正确方式：
+
+```python
+scaler = StandardScaler()
+df_train[numerical] = scaler.fit_transform(df_train[numerical])
+df_val[numerical] = scaler.transform(df_val[numerical])
+df_test[numerical] = scaler.transform(df_test[numerical])
+```
+
+只在 train 上 `fit`，val/test 只能 `transform`。
+
+### Q8: KFold 双层循环在做什么？
+
+外层遍历不同 `C`，内层做 5-fold CV。
+
+```python
+for C in [...]:
+    kfold = KFold(n_splits=5, shuffle=True, random_state=1)
+
+    for train_idx, val_idx in kfold.split(df_full_train):
+        ...
+```
+
+要点：
+
+```text
+KFold(...) 只是定义切分规则
+split(df_full_train) 才生成 5 组 train/val 索引
+random_state 固定，所以每个 C 用同一套 5 折，比较公平
+输出 mean AUC +- std，看平均效果和稳定性
+```
+
