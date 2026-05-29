@@ -11,4 +11,5 @@ dependencies = [
     "pandas",
     "scikit-learn",
     "seaborn",
+    "tqdm>=4.67.3",
 ]
