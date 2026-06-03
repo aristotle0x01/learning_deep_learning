@@ -805,3 +805,299 @@ random_state 固定，所以每个 C 用同一套 5 折，比较公平
 输出 mean AUC +- std，看平均效果和稳定性
 ```
 
+## 06-trees 核心问答
+
+### Q1: Gini impurity 数学概念是什么？如何用它建立一个树节点？
+
+Gini impurity 衡量一个节点里的类别有多混杂：
+
+```text
+Gini = 1 - sum(p_i^2)
+```
+
+二分类时：
+
+```text
+Gini = 1 - p_ok^2 - p_default^2
+```
+
+直觉：
+
+```text
+Gini = 0   最纯，全是同一类
+Gini = 0.5 二分类最混杂，ok/default 各一半
+```
+
+简化贷款数据：
+
+| id | debt | assets | status |
+|---:|---:|---:|---|
+| 1 | 500 | 9000 | ok |
+| 2 | 800 | 7000 | ok |
+| 3 | 1200 | 5000 | ok |
+| 4 | 1500 | 4500 | default |
+| 5 | 2200 | 3000 | default |
+| 6 | 3000 | 2000 | default |
+| 7 | 900 | 1000 | default |
+| 8 | 2600 | 6000 | ok |
+
+根节点：
+
+```text
+ok = 4
+default = 4
+Gini_root = 1 - (4/8)^2 - (4/8)^2 = 0.5
+```
+
+候选切分 1：
+
+```text
+assets <= 3750
+```
+
+```text
+left:  ok = 0, default = 3
+Gini_left = 0
+
+right: ok = 4, default = 1
+Gini_right = 1 - (4/5)^2 - (1/5)^2 = 0.32
+
+weighted_gini = 3/8 * 0 + 5/8 * 0.32 = 0.20
+```
+
+候选切分 2：
+
+```text
+debt <= 1750
+```
+
+```text
+left:  ok = 3, default = 2
+Gini_left = 1 - (3/5)^2 - (2/5)^2 = 0.48
+
+right: ok = 1, default = 2
+Gini_right = 1 - (1/3)^2 - (2/3)^2 = 0.444
+
+weighted_gini = 5/8 * 0.48 + 3/8 * 0.444 = 0.467
+```
+
+比较后：
+
+```text
+assets <= 3750    weighted_gini = 0.20
+debt <= 1750      weighted_gini = 0.467
+```
+
+所以当前节点会选择 `assets <= 3750`，因为它让左右分支更纯。
+
+### Q2: 建节点时是不是“候选特征 × 候选阈值”两层筛选？
+
+对。当前节点里有一批训练样本，算法会做局部搜索：
+
+```text
+for feature in candidate_features:
+    collect thresholds for this feature
+
+    for threshold in thresholds:
+        split into left/right
+        compute weighted_gini
+
+choose feature + threshold with minimum weighted_gini
+```
+
+数值特征的候选阈值通常来自排序后的相邻取值中点；类别特征一般会先 one-hot，或按类别分组处理。
+
+选出来的不是“当前节点”，而是**当前节点的切分规则**：
+
+```text
+当前节点:
+    if assets <= 3750:
+        go left
+    else:
+        go right
+```
+
+左右子节点继续重复同样过程。决策树是贪心算法：每个节点只选当前最好的 split，不保证整棵树全局最优。
+
+### Q4: 数据大时真的逐个 threshold 测试吗？
+
+精确树概念上会试候选阈值，但实现上不是每次重新扫全表。常见优化：
+
+```text
+1. 对特征排序
+2. 从左到右扫描
+3. 增量维护 left/right 类别计数
+4. 快速更新 weighted_gini
+```
+
+更大数据里，XGBoost/LightGBM 常用 histogram/binning，只在桶边界找 split。
+
+### Q5: Gini 很小或为 0 就停止切分吗？
+
+通常会停止，尤其 `Gini = 0` 表示节点已经全是同一类。但实际停止还受这些条件控制：
+
+```text
+max_depth
+min_samples_leaf
+min_samples_split
+min_impurity_decrease
+```
+
+只追求训练集叶子纯度，容易过拟合。
+
+### Q6: `min_samples_split` 和 `min_samples_leaf` 的关键区别？
+
+```text
+min_samples_split:
+    父节点至少有多少样本，才允许尝试继续切
+
+min_samples_leaf:
+    切完后，每个子节点至少要有多少样本
+```
+
+前者控制“能不能尝试切”，后者控制“切出来是否合法”。后者更直接防止生成很小的叶子。
+
+### Q7: 叶子节点最后如何预测？
+
+分类树训练完成后，每个叶子在**硬分类逻辑上**可以等效成一个标签节点。新样本走到这个叶子后，`predict()` 输出该叶子的多数类。
+
+但模型内部不会只存一个标签，通常还会保留训练样本落到该叶子后的类别计数/分布：
+
+```text
+ok: 18
+default: 2
+```
+
+所以：
+
+```text
+predict()       -> ok
+predict_proba() -> P(ok)=0.9, P(default)=0.1
+```
+
+这些分布会用于概率预测、AUC 计算、模型解释和判断这个叶子的预测是否稳定。也就是说：
+
+```text
+对最终硬分类:
+    叶子等效为一个标签
+
+对模型内部和概率输出:
+    叶子保留训练真实分布
+```
+
+### Q8: 为什么真实数据往往要切好几层？
+
+单个特征和阈值通常只能粗分。多层路径组合后，才形成多因素规则：
+
+```text
+debt 高 + assets 低 + records=yes -> default 风险高
+```
+
+树天然能表达非线性和特征交互；但越深越容易过拟合，要靠 validation 和复杂度参数控制。
+
+### Q9: DT、RF、线性模型、NN 怎么定位？
+
+```text
+线性模型:
+    一个整体线性公式，可解释，但表达能力有限
+
+决策树:
+    if-else 规则，能表达非线性和特征交互，单棵树容易过拟合
+
+随机森林:
+    多棵树投票/平均，比单棵树稳定，可解释性略下降
+
+神经网络:
+    表达能力更强，需要更多数据和调参，可解释性弱
+```
+
+DT 不是简单线性算法，也没到 NN 那么复杂；RF 是多棵 DT 的集成。
+
+### Q10: Random Forest 每棵树是如何建立的？随机性在哪里？
+
+RF 是很多棵 decision tree 的集成。每棵树仍然按 Gini/Entropy 找 split，但训练时引入两类随机性：
+
+```text
+1. 行随机:
+   每棵树从训练集 bootstrap sample
+
+2. 特征随机:
+   每个节点只随机看一部分特征，再在这部分特征里找最优 split
+```
+
+scikit-learn 当前默认大致是：
+
+```text
+bootstrap = True
+max_features = sqrt
+criterion = gini
+```
+
+如果 one-hot 后有 100 个特征，`max_features=sqrt` 表示每个节点大约随机看 10 个特征。注意这是**每个节点重新抽特征**，不是一棵树固定一批特征。
+
+### Q11: bootstrap 行采样会去重吗？
+
+不会。bootstrap 是有放回抽样，重复行会保留。
+
+```text
+原始行: [A, B, C, D, E]
+
+tree_1 sample:
+[A, A, C, E, E]
+```
+
+重复行等效于在这棵树里权重更高。没被某棵树抽到的行叫 OOB samples，可以用于 out-of-bag 评估，但它不是传统 train/validation split。
+
+### Q12: 每个节点只随机看一部分特征，会不会错过最优 split？
+
+会。单棵树确实可能因为没看到最强特征，选不到当前节点的全局最优 split。
+
+RF 故意这么做，因为它追求的不是每棵树最优，而是让树之间差异更大：
+
+```text
+每棵树都看全部特征:
+    强特征反复被选中，树长得很像，错误也相似
+
+每个节点随机看部分特征:
+    单树弱一点，但树之间相关性更低，集成后更稳
+```
+
+所以 RF 是“随机候选集 + 候选集内最优”，不是随便切。
+
+### Q13: bias 和 variance 分别是什么？RF 主要解决哪个？
+
+```text
+bias 高:
+    模型太简单，训练集都学不好，欠拟合
+
+variance 高:
+    模型太敏感，训练集很好，验证集差，过拟合
+```
+
+树模型里：
+
+```text
+浅树:
+    bias 高，variance 低
+
+深树:
+    bias 低，variance 高
+
+Random Forest:
+    通过 bootstrap + 特征随机 + 多树平均，主要降低 variance
+```
+
+RF 牺牲一点单棵树的局部最优性，换整体模型更稳定的泛化表现。
+
+### Q14: 06 章有哪些值得记录的踩坑？
+
+`99999999` 这种极大值通常是缺失值占位符，会污染 mean/std；`0` 不一定异常，要看业务含义。
+
+新版本 XGBoost 的 `feature_names` 需要 string list，不接受 NumPy ndarray：
+
+```python
+features = list(dv.get_feature_names_out())
+
+dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=features)
+dval = xgb.DMatrix(X_val, label=y_val, feature_names=features)
+```
