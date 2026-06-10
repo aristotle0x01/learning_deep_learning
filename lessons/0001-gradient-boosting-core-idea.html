@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gradient Boosting 第一课：不断修正当前模型</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #59636e;
+      --line: #d7dde3;
+      --paper: #ffffff;
+      --page: #eef2f4;
+      --blue: #1769aa;
+      --green: #147d64;
+      --red: #b43b36;
+      --yellow: #fff4c2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+    }
+    main {
+      width: min(900px, calc(100% - 32px));
+      margin: 28px auto;
+      padding: 40px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    h1, h2 { line-height: 1.25; letter-spacing: 0; }
+    h1 { margin: 0 0 12px; font-size: 34px; }
+    h2 { margin-top: 38px; font-size: 23px; }
+    p { margin: 12px 0; }
+    .lede { color: var(--muted); font-size: 19px; }
+    .formula, .summary {
+      padding: 16px 18px;
+      border-left: 4px solid var(--blue);
+      background: #f3f7fa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-wrap: anywhere;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+    .step {
+      min-height: 142px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    .step strong { display: block; margin-bottom: 7px; color: var(--blue); }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    .up { color: var(--green); font-weight: 700; }
+    .down { color: var(--red); font-weight: 700; }
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .compare section { padding: 16px; border: 1px solid var(--line); border-radius: 6px; }
+    .quiz { margin-top: 34px; padding: 20px; background: var(--yellow); border-radius: 6px; }
+    button {
+      margin: 6px 6px 0 0;
+      padding: 9px 13px;
+      border: 1px solid #8b8f93;
+      border-radius: 5px;
+      background: white;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+    }
+    button:hover { border-color: var(--blue); }
+    #feedback { min-height: 30px; margin-top: 12px; font-weight: 650; }
+    .sources { color: var(--muted); font-size: 14px; }
+    @media (max-width: 680px) {
+      main { margin: 0; width: 100%; padding: 24px 18px; border: 0; border-radius: 0; }
+      h1 { font-size: 28px; }
+      .flow, .compare { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: white; }
+      main { width: 100%; margin: 0; border: 0; padding: 0; }
+      button { display: none; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Gradient Boosting：不断修正当前模型</h1>
+  <p class="lede">这一课只解决一个问题：Gradient Boosting 中，每一棵新树究竟在做什么？</p>
+
+  <h2>先给结论</h2>
+  <div class="summary">Gradient Boosting 先建立一个粗糙预测，然后不断增加小树，让每棵新树修正当前模型仍然存在的错误。</div>
+
+  <h2>一个最小例子</h2>
+  <p>假设要预测四辆车的价格，真实价格如下。初始模型暂时不看任何特征，对所有车都预测平均价格 <strong>125</strong>。</p>
+  <table>
+    <thead><tr><th>车辆</th><th>真实价格 y</th><th>当前预测 F₀(x)</th><th>残差 y − F₀(x)</th></tr></thead>
+    <tbody>
+      <tr><td>A</td><td>100</td><td>125</td><td class="down">−25</td></tr>
+      <tr><td>B</td><td>120</td><td>125</td><td class="down">−5</td></tr>
+      <tr><td>C</td><td>130</td><td>125</td><td class="up">+5</td></tr>
+      <tr><td>D</td><td>150</td><td>125</td><td class="up">+25</td></tr>
+    </tbody>
+  </table>
+  <p>残差表示当前预测应该向哪个方向修正：</p>
+  <p><span class="up">正残差：预测低了，需要往上修。</span><br><span class="down">负残差：预测高了，需要往下修。</span></p>
+
+  <h2>一轮 Boosting</h2>
+  <div class="flow">
+    <div class="step"><strong>1. 当前模型预测</strong>初始模型 F₀(x) 对所有车辆预测 125。</div>
+    <div class="step"><strong>2. 计算当前错误</strong>计算每个样本的残差：真实值减去当前预测。</div>
+    <div class="step"><strong>3. 新树学习修正</strong>训练 tree₁(x)，让它尽量预测这些残差。</div>
+  </div>
+  <div class="formula">新模型：F₁(x) = F₀(x) + η × tree₁(x)</div>
+  <p><code>η</code> 是 learning rate。它控制本轮修正幅度，避免一棵树修得过猛。</p>
+
+  <h2>为什么这能降低平方误差？</h2>
+  <p>对第 <code>i</code> 个样本，真实值 <code>yᵢ</code> 已固定，当前所有树组合后的预测是 <code>F(xᵢ)</code>。使用带 <code>½</code> 的平方误差：</p>
+  <div class="formula">Lᵢ(F) = ½ × (yᵢ − F(xᵢ))²</div>
+  <p>这里对 <strong>当前预测值 F(xᵢ)</strong> 求导，因为新树能够改变的是预测值，而不是真实值。</p>
+  <div class="formula">
+    ∂Lᵢ / ∂F(xᵢ)<br>
+    = ½ × 2(yᵢ − F(xᵢ)) × (−1)<br>
+    = F(xᵢ) − yᵢ
+  </div>
+  <p>残差定义为：</p>
+  <div class="formula">rᵢ = yᵢ − F(xᵢ)</div>
+  <p>因此：</p>
+  <div class="formula">− ∂Lᵢ / ∂F(xᵢ) = yᵢ − F(xᵢ) = rᵢ</div>
+  <p>所以在平方误差下，<strong>残差恰好就是 loss 对当前预测值的负梯度</strong>。如果平方误差不写 <code>½</code>，负梯度会是 <code>2rᵢ</code>；方向相同，常数可以由 learning rate 吸收。</p>
+
+  <h2>为什么沿负梯度方向会降低 loss？</h2>
+  <p>导数表示：预测值 <code>F</code> 增加一点时，loss 会向哪个方向变化。</p>
+  <div class="formula">
+    小幅修改 ΔF 后：<br>
+    L(F + ΔF) ≈ L(F) + L′(F) × ΔF
+  </div>
+  <p>如果选择：</p>
+  <div class="formula">ΔF = −η × L′(F)，其中 η &gt; 0</div>
+  <p>那么 loss 的变化近似为：</p>
+  <div class="formula">L′(F) × ΔF = −η × [L′(F)]² ≤ 0</div>
+  <p>因此，小步沿负梯度方向修改预测，loss 不会上升，通常会下降。</p>
+  <p>Gradient Boosting 无法直接为每个样本单独保存一个修正值，所以训练一棵树去近似这些负梯度：</p>
+  <div class="formula">
+    treeₘ(xᵢ) ≈ − ∂Lᵢ / ∂F(xᵢ)<br>
+    平方误差下：treeₘ(xᵢ) ≈ rᵢ
+  </div>
+  <p>然后把这棵树加入当前整体模型，再重新计算新的残差。每一轮修正的是<strong>当前所有树组合后的模型</strong>。</p>
+
+  <h2>与 Decision Tree、Random Forest 的关系</h2>
+  <div class="compare">
+    <section><strong>Random Forest</strong><p>很多树独立训练，最后平均。重点是让多棵树共同降低不稳定性。</p></section>
+    <section><strong>Gradient Boosting</strong><p>树按顺序训练，后一棵依赖前面模型的错误。重点是逐轮改进当前模型。</p></section>
+  </div>
+  <p>两者都使用 Decision Tree 作为基本组件，但组合树的方式不同。</p>
+
+  <div class="quiz">
+    <strong>理解检查</strong>
+    <p>某样本真实值为 80，当前模型预测为 100。下一棵树应为它学习什么方向的修正？</p>
+    <button onclick="answer(false)">向上修正</button>
+    <button onclick="answer(true)">向下修正</button>
+    <button onclick="answer(false)">不修正</button>
+    <div id="feedback" aria-live="polite"></div>
+  </div>
+
+  <h2>本课压缩</h2>
+  <div class="summary">当前整体模型 → 计算 loss 的负梯度 → 新树近似负梯度 → 加入新树 → 重复。平方误差下，负梯度恰好就是残差。</div>
+
+  <p class="sources">
+    来源：
+    <a href="https://scikit-learn.org/stable/modules/ensemble.html#gradient-boosted-trees">scikit-learn Gradient-boosted trees</a>；
+    <a href="https://xgboost.readthedocs.io/en/stable/tutorials/model.html">XGBoost Introduction to Boosted Trees</a>。
+    对任何不清楚的过渡，直接继续问老师。
+  </p>
+</main>
+<script>
+  function answer(correct) {
+    const el = document.getElementById("feedback");
+    if (correct) {
+      el.textContent = "正确。残差是 80 − 100 = −20，因此需要向下修正。";
+      el.style.color = "#147d64";
+    } else {
+      el.textContent = "再看残差：真实值 − 当前预测 = 80 − 100 = −20。";
+      el.style.color = "#b43b36";
+    }
+  }
+</script>
+</body>
+</html>
