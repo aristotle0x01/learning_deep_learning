@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1100" width="1600" height="1100">
+  <style>
+    text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .title { font-size: 26px; font-weight: 700; fill: #111827; }
+    .subtitle { font-size: 13px; fill: #6b7280; }
+    .section { font-size: 17px; font-weight: 700; fill: #111827; }
+    .label { font-size: 14px; font-weight: 600; fill: #111827; }
+    .small { font-size: 12px; fill: #4b5563; }
+    .tiny { font-size: 11px; fill: #6b7280; }
+    .mono { font-family: Menlo, Monaco, Consolas, monospace; font-size: 12px; fill: #374151; }
+    .node { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.5; }
+    .blue { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1.5; }
+    .purple { fill: #faf5ff; stroke: #c4b5fd; stroke-width: 1.5; }
+    .green { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.5; }
+    .orange { fill: #fff7ed; stroke: #fdba74; stroke-width: 1.5; }
+    .teal { fill: #f0fdfa; stroke: #5eead4; stroke-width: 1.5; }
+    .gray { fill: #f9fafb; stroke: #d1d5db; stroke-width: 1.5; }
+    .container { fill: #f9fafb; stroke: #cbd5e1; stroke-width: 1.5; stroke-dasharray: 7 5; }
+  </style>
+
+  <defs>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#059669"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="1100" fill="#ffffff"/>
+
+  <text x="50" y="42" class="title">现代 Decoder-only LLM：从文本到下一个 Token</text>
+  <text x="50" y="68" class="subtitle">整体架构 + 单层 Transformer Block 放大图｜核心直觉：Attention 搬运信息，FFN 加工信息，Residual Stream 累积信息</text>
+  <text x="1550" y="42" text-anchor="end" class="tiny">Based on “How LLMs Actually Work” · 0xkato</text>
+
+  <!-- Main pipeline -->
+  <text x="50" y="104" class="section">1. 整体推理流水线</text>
+
+  <rect x="50" y="125" width="180" height="105" rx="10" class="orange" filter="url(#shadow)"/>
+  <circle cx="85" cy="162" r="18" fill="#fed7aa"/>
+  <path d="M76 162 H94 M85 153 V171" stroke="#ea580c" stroke-width="2"/>
+  <text x="115" y="158" class="label">输入文本</text>
+  <text x="115" y="180" class="small">“The cat was …”</text>
+  <text x="115" y="201" class="tiny">人类可读字符串</text>
+
+  <rect x="275" y="125" width="180" height="105" rx="10" class="purple" filter="url(#shadow)"/>
+  <rect x="298" y="148" width="38" height="38" rx="7" fill="#ede9fe"/>
+  <text x="317" y="173" text-anchor="middle" class="label" fill="#7c3aed">T</text>
+  <text x="350" y="158" class="label">Tokenizer</text>
+  <text x="350" y="180" class="small">子词 / byte pieces</text>
+  <text x="350" y="201" class="tiny">固定 vocabulary</text>
+
+  <rect x="500" y="125" width="170" height="105" rx="10" class="gray" filter="url(#shadow)"/>
+  <text x="585" y="155" text-anchor="middle" class="label">Token IDs</text>
+  <text x="585" y="181" text-anchor="middle" class="mono">[464, 3797, 373]</text>
+  <text x="585" y="203" text-anchor="middle" class="tiny">离散整数序列</text>
+
+  <rect x="715" y="125" width="205" height="105" rx="10" class="blue" filter="url(#shadow)"/>
+  <g transform="translate(740 150)">
+    <rect width="42" height="42" rx="7" fill="#dbeafe"/>
+    <path d="M9 30 L18 19 L25 25 L33 11" fill="none" stroke="#2563eb" stroke-width="2"/>
+    <circle cx="9" cy="30" r="2" fill="#2563eb"/>
+    <circle cx="18" cy="19" r="2" fill="#2563eb"/>
+    <circle cx="25" cy="25" r="2" fill="#2563eb"/>
+    <circle cx="33" cy="11" r="2" fill="#2563eb"/>
+  </g>
+  <text x="798" y="158" class="label">Embedding Lookup</text>
+  <text x="798" y="180" class="small">ID → d_model 向量</text>
+  <text x="798" y="201" class="tiny">例如每 token 4096 维</text>
+
+  <rect x="970" y="115" width="265" height="125" rx="12" class="teal" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="990" y="139" width="225" height="77" rx="8" fill="#ffffff" stroke="#99f6e4"/>
+  <rect x="1002" y="151" width="201" height="13" rx="4" fill="#ccfbf1"/>
+  <rect x="1002" y="171" width="201" height="13" rx="4" fill="#ccfbf1"/>
+  <rect x="1002" y="191" width="201" height="13" rx="4" fill="#ccfbf1"/>
+  <text x="1102" y="135" text-anchor="middle" class="label">Transformer Blocks × L</text>
+  <text x="1102" y="232" text-anchor="middle" class="tiny">每层：Attention + FFN + Residual</text>
+
+  <rect x="1285" y="125" width="175" height="105" rx="10" class="green" filter="url(#shadow)"/>
+  <text x="1372" y="155" text-anchor="middle" class="label">Final Norm</text>
+  <text x="1372" y="178" text-anchor="middle" class="small">Unembedding → logits</text>
+  <text x="1372" y="201" text-anchor="middle" class="tiny">vocab 中每项一个分数</text>
+
+  <rect x="1500" y="125" width="70" height="105" rx="10" class="orange" filter="url(#shadow)"/>
+  <text x="1535" y="155" text-anchor="middle" class="label">采样</text>
+  <text x="1535" y="180" text-anchor="middle" class="small">next</text>
+  <text x="1535" y="200" text-anchor="middle" class="small">token</text>
+
+  <path d="M230 177 H265" fill="none" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrow-blue)"/>
+  <path d="M455 177 H490" fill="none" stroke="#7c3aed" stroke-width="2.2" marker-end="url(#arrow-purple)"/>
+  <path d="M670 177 H705" fill="none" stroke="#7c3aed" stroke-width="2.2" marker-end="url(#arrow-purple)"/>
+  <path d="M920 177 H960" fill="none" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrow-blue)"/>
+  <path d="M1235 177 H1275" fill="none" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrow-blue)"/>
+  <path d="M1460 177 H1490" fill="none" stroke="#ea580c" stroke-width="2.2" marker-end="url(#arrow-orange)"/>
+
+  <!-- Transformer detail -->
+  <rect x="40" y="275" width="1520" height="640" rx="16" class="container"/>
+  <text x="65" y="310" class="section">2. 单个 Transformer Block：所有子模块都读取当前状态，并把更新写回 Residual Stream</text>
+  <text x="1535" y="310" text-anchor="end" class="tiny">同一结构重复 L 次；每层参数不同</text>
+
+  <!-- Attention branch -->
+  <rect x="65" y="345" width="1010" height="405" rx="12" fill="#f8fbff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="90" y="375" class="label" fill="#1d4ed8">Attention 分支：跨 token 检索、搬运、混合信息</text>
+  <text x="1035" y="375" text-anchor="end" class="tiny">每个 token 的 Q 查询所有可见 token 的 K，并加权读取 V</text>
+  <rect x="90" y="392" width="260" height="24" rx="6" fill="#ffffff" stroke="#bfdbfe"/>
+  <text x="220" y="408" text-anchor="middle" class="tiny">Causal mask：只能读取当前位置及之前</text>
+
+  <rect x="115" y="620" width="145" height="72" rx="9" class="node"/>
+  <text x="187" y="649" text-anchor="middle" class="label">RMSNorm</text>
+  <text x="187" y="671" text-anchor="middle" class="tiny">稳定的读取视图</text>
+
+  <rect x="315" y="590" width="180" height="132" rx="9" class="purple"/>
+  <text x="405" y="620" text-anchor="middle" class="label">Q / K / V 投影</text>
+  <text x="405" y="644" text-anchor="middle" class="mono">x · WQ / WK / WV</text>
+  <rect x="337" y="663" width="42" height="30" rx="5" fill="#ede9fe"/>
+  <rect x="384" y="663" width="42" height="30" rx="5" fill="#ede9fe"/>
+  <rect x="431" y="663" width="42" height="30" rx="5" fill="#ede9fe"/>
+  <text x="358" y="683" text-anchor="middle" class="small">Q</text>
+  <text x="405" y="683" text-anchor="middle" class="small">K</text>
+  <text x="452" y="683" text-anchor="middle" class="small">V</text>
+  <text x="405" y="712" text-anchor="middle" class="tiny">每个 head 是完整状态的学习投影</text>
+
+  <rect x="545" y="605" width="135" height="102" rx="9" class="orange"/>
+  <circle cx="612" cy="651" r="25" fill="none" stroke="#ea580c" stroke-width="2"/>
+  <path d="M612 626 A25 25 0 0 1 635 641" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <line x1="612" y1="651" x2="629" y2="639" stroke="#ea580c" stroke-width="2"/>
+  <text x="612" y="688" text-anchor="middle" class="label">RoPE</text>
+  <text x="612" y="702" text-anchor="middle" class="tiny">按位置旋转 Q / K</text>
+
+  <rect x="730" y="405" width="300" height="245" rx="11" class="blue"/>
+  <text x="880" y="436" text-anchor="middle" class="label">Multi-head / GQA Attention</text>
+  <text x="880" y="458" text-anchor="middle" class="tiny">多个较小空间，并行关注不同关系</text>
+
+  <rect x="755" y="482" width="72" height="88" rx="7" fill="#ffffff" stroke="#93c5fd"/>
+  <text x="791" y="505" text-anchor="middle" class="small">Head 1</text>
+  <text x="791" y="527" text-anchor="middle" class="tiny">Q·K</text>
+  <text x="791" y="545" text-anchor="middle" class="tiny">softmax</text>
+  <text x="791" y="563" text-anchor="middle" class="tiny">Σ weight·V</text>
+
+  <rect x="844" y="482" width="72" height="88" rx="7" fill="#ffffff" stroke="#93c5fd"/>
+  <text x="880" y="505" text-anchor="middle" class="small">Head 2</text>
+  <text x="880" y="527" text-anchor="middle" class="tiny">Q·K</text>
+  <text x="880" y="545" text-anchor="middle" class="tiny">softmax</text>
+  <text x="880" y="563" text-anchor="middle" class="tiny">Σ weight·V</text>
+
+  <rect x="933" y="482" width="72" height="88" rx="7" fill="#ffffff" stroke="#93c5fd"/>
+  <text x="969" y="505" text-anchor="middle" class="small">Head N</text>
+  <text x="969" y="527" text-anchor="middle" class="tiny">Q·K</text>
+  <text x="969" y="545" text-anchor="middle" class="tiny">softmax</text>
+  <text x="969" y="563" text-anchor="middle" class="tiny">Σ weight·V</text>
+
+  <path d="M791 582 H969" stroke="#2563eb" stroke-width="1.5" fill="none"/>
+  <text x="880" y="608" text-anchor="middle" class="small">Concat heads → W<tspan baseline-shift="sub" font-size="9">O</tspan> 混合</text>
+  <text x="880" y="631" text-anchor="middle" class="tiny">输出回到 d_model 宽度</text>
+
+  <!-- KV cache -->
+  <path d="M770 675 C770 660 990 660 990 675 L990 724 C990 739 770 739 770 724 Z" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <ellipse cx="880" cy="675" rx="110" ry="15" fill="#dcfce7" stroke="#86efac" stroke-width="1.5"/>
+  <text x="880" y="699" text-anchor="middle" class="label">KV Cache（每层、每请求）</text>
+  <text x="880" y="719" text-anchor="middle" class="tiny">缓存历史 K/V；GQA 让多个 Q head 共享较少 KV heads</text>
+
+  <path d="M260 656 H305" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M495 656 H535" fill="none" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow-purple)"/>
+  <path d="M680 656 C705 656 705 535 720 535" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <path d="M1030 535 H1055 V780" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M825 650 V665" fill="none" stroke="#059669" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#arrow-green)"/>
+  <path d="M935 665 V650" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+  <rect x="686" y="522" width="52" height="20" rx="4" fill="#ffffff" opacity="0.96"/>
+  <text x="712" y="536" text-anchor="middle" class="tiny">Q/K/V</text>
+  <rect x="788" y="648" width="74" height="20" rx="4" fill="#ffffff" opacity="0.96"/>
+  <text x="825" y="662" text-anchor="middle" class="tiny">写入新 K/V</text>
+  <rect x="905" y="648" width="60" height="20" rx="4" fill="#ffffff" opacity="0.96"/>
+  <text x="935" y="662" text-anchor="middle" class="tiny">读取历史</text>
+
+  <!-- FFN branch -->
+  <rect x="1100" y="345" width="435" height="405" rx="12" fill="#fffaf5" stroke="#fed7aa" stroke-width="1.5"/>
+  <text x="1125" y="375" class="label" fill="#c2410c">FFN / MoE 分支：单个 token 内部的非线性加工</text>
+  <text x="1125" y="397" class="tiny">不跨 token；检测、选择、转换当前状态中的特征</text>
+
+  <rect x="1130" y="620" width="135" height="72" rx="9" class="node"/>
+  <text x="1197" y="649" text-anchor="middle" class="label">RMSNorm</text>
+  <text x="1197" y="671" text-anchor="middle" class="tiny">稳定的读取视图</text>
+
+  <rect x="1305" y="425" width="200" height="275" rx="10" class="orange"/>
+  <text x="1405" y="455" text-anchor="middle" class="label">Dense FFN 或 MoE</text>
+
+  <rect x="1328" y="478" width="154" height="76" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1405" y="500" text-anchor="middle" class="small">Dense FFN</text>
+  <text x="1405" y="520" text-anchor="middle" class="tiny">扩维 → SwiGLU → 压回</text>
+  <text x="1405" y="539" text-anchor="middle" class="mono">d → d_ff → d</text>
+
+  <text x="1405" y="575" text-anchor="middle" class="tiny">或</text>
+
+  <rect x="1328" y="591" width="154" height="83" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1405" y="613" text-anchor="middle" class="small">MoE</text>
+  <text x="1405" y="633" text-anchor="middle" class="tiny">Router → Top-k Experts</text>
+  <text x="1405" y="653" text-anchor="middle" class="tiny">多个 FFN，稀疏激活</text>
+
+  <path d="M1265 656 H1295 V562 H1305" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <path d="M1405 700 V780" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+
+  <!-- Residual stream -->
+  <rect x="75" y="780" width="1460" height="72" rx="12" fill="#eef2ff" stroke="#a5b4fc" stroke-width="2"/>
+  <path d="M105 816 H1510" fill="none" stroke="#4f46e5" stroke-width="5" marker-end="url(#arrow-purple)"/>
+  <text x="105" y="838" class="tiny">x<tspan baseline-shift="sub" font-size="8">l</tspan>：进入本层的 token hidden states</text>
+  <text x="1510" y="838" text-anchor="end" class="tiny">x<tspan baseline-shift="sub" font-size="8">l+1</tspan>：原状态 + Attention 更新 + FFN 更新</text>
+  <text x="795" y="807" text-anchor="middle" class="label" fill="#4338ca">Residual Stream：贯穿所有层的共享工作状态</text>
+
+  <path d="M150 816 V702 H187 V692" fill="none" stroke="#6b7280" stroke-width="1.7" marker-end="url(#arrow-gray)"/>
+  <path d="M1135 816 V702 H1197 V692" fill="none" stroke="#6b7280" stroke-width="1.7" marker-end="url(#arrow-gray)"/>
+
+  <circle cx="1085" cy="816" r="17" fill="#ffffff" stroke="#4f46e5" stroke-width="2"/>
+  <line x1="1077" y1="816" x2="1093" y2="816" stroke="#4f46e5" stroke-width="2"/>
+  <line x1="1085" y1="808" x2="1085" y2="824" stroke="#4f46e5" stroke-width="2"/>
+
+  <circle cx="1445" cy="816" r="17" fill="#ffffff" stroke="#4f46e5" stroke-width="2"/>
+  <line x1="1437" y1="816" x2="1453" y2="816" stroke="#4f46e5" stroke-width="2"/>
+  <line x1="1445" y1="808" x2="1445" y2="824" stroke="#4f46e5" stroke-width="2"/>
+
+  <rect x="90" y="870" width="750" height="28" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="465" y="889" text-anchor="middle" class="small" fill="#4338ca">x_final = x_embedding + Σ Attention_l(current state) + Σ FFN_l(current state)</text>
+  <rect x="870" y="870" width="640" height="28" rx="6" fill="#ffffff" stroke="#c7d2fe"/>
+  <text x="1190" y="889" text-anchor="middle" class="small" fill="#4338ca">关键：后续分支读取的是已经累积更新后的 current state，并非彼此独立</text>
+
+  <!-- Generation loop -->
+  <text x="50" y="955" class="section">3. 自回归生成循环</text>
+  <rect x="50" y="975" width="1480" height="78" rx="12" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+  <rect x="80" y="994" width="205" height="40" rx="8" class="green"/>
+  <text x="182" y="1019" text-anchor="middle" class="small">最后位置向量 → logits</text>
+  <rect x="350" y="994" width="210" height="40" rx="8" class="orange"/>
+  <text x="455" y="1019" text-anchor="middle" class="small">softmax / temperature / top-p</text>
+  <rect x="625" y="994" width="190" height="40" rx="8" class="purple"/>
+  <text x="720" y="1019" text-anchor="middle" class="small">选择 next token</text>
+  <rect x="880" y="994" width="240" height="40" rx="8" class="blue"/>
+  <text x="1000" y="1019" text-anchor="middle" class="small">追加 token；只计算新位置</text>
+  <rect x="1185" y="994" width="300" height="40" rx="8" class="green"/>
+  <text x="1335" y="1019" text-anchor="middle" class="small">复用 KV Cache → 下一轮 Attention / FFN</text>
+
+  <path d="M285 1014 H340" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M560 1014 H615" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <path d="M815 1014 H870" fill="none" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow-purple)"/>
+  <path d="M1120 1014 H1175" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M1485 1034 V1045 H182 V1034" fill="none" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrow-purple)"/>
+  <rect x="785" y="1035" width="124" height="20" rx="4" fill="#ffffff" opacity="0.96"/>
+  <text x="847" y="1049" text-anchor="middle" class="tiny">逐 token 重复，直到 EOS</text>
+
+  <!-- Legend -->
+  <g transform="translate(50 1080)">
+    <line x1="0" y1="0" x2="32" y2="0" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <text x="40" y="4" class="tiny">主数据流</text>
+    <line x1="115" y1="0" x2="147" y2="0" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow-purple)"/>
+    <text x="155" y="4" class="tiny">向量变换 / 循环</text>
+    <line x1="285" y1="0" x2="317" y2="0" stroke="#059669" stroke-width="1.8" marker-end="url(#arrow-green)"/>
+    <text x="325" y="4" class="tiny">缓存读写</text>
+    <line x1="425" y1="0" x2="457" y2="0" stroke="#6b7280" stroke-width="1.7" marker-end="url(#arrow-gray)"/>
+    <text x="465" y="4" class="tiny">从 Residual 读取</text>
+    <text x="1550" y="4" text-anchor="end" class="tiny">架构是计算骨架；训练决定 WQ/WK/WV、WO、FFN/MoE、Embedding 等权重</text>
+  </g>
+</svg>
