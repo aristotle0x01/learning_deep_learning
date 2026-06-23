@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MLE：从计数概率到神经网络 loss</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5d6875;
+      --line: #d9e0e7;
+      --paper: #ffffff;
+      --page: #f1f4f7;
+      --blue: #1769aa;
+      --green: #13795b;
+      --yellow: #fff6d6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+    }
+    main {
+      width: min(940px, calc(100% - 32px));
+      margin: 28px auto;
+      padding: 40px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    h1, h2 { line-height: 1.25; letter-spacing: 0; }
+    h1 { margin: 0 0 10px; font-size: 34px; }
+    h2 { margin-top: 34px; font-size: 23px; }
+    p { margin: 12px 0; }
+    a { color: var(--blue); }
+    code { padding: 2px 5px; background: #edf2f6; border-radius: 4px; }
+    .lede { color: var(--muted); font-size: 19px; }
+    .summary, .formula {
+      padding: 16px 18px;
+      border-left: 4px solid var(--blue);
+      background: #f4f8fb;
+      border-radius: 4px;
+    }
+    .formula {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-wrap: anywhere;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f3f6f8; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+    }
+    .card strong { color: var(--blue); }
+    .practice {
+      margin-top: 30px;
+      padding: 18px;
+      background: var(--yellow);
+      border-radius: 6px;
+    }
+    button {
+      margin-top: 12px;
+      padding: 9px 13px;
+      border: 1px solid #8b949e;
+      border-radius: 5px;
+      background: white;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    #answer { margin-top: 12px; font-weight: 600; color: var(--green); }
+    footer { margin-top: 34px; color: var(--muted); font-size: 14px; }
+    @media (max-width: 760px) {
+      main { padding: 24px; }
+      .grid { grid-template-columns: 1fr; }
+      table { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>MLE：从计数概率到神经网络 loss</h1>
+  <p class="lede">这节只解决一个问题：为什么“让真实样本概率最大”会变成 NLL/cross-entropy loss。</p>
+
+  <section class="summary">
+    <p><strong>一句话：</strong>Maximum Likelihood Estimation, MLE，就是选择参数，让已经观察到的训练数据在模型下尽可能高概率。</p>
+  </section>
+
+  <h2>1. probability 和 likelihood 的区别</h2>
+  <div class="grid">
+    <section class="card">
+      <p><strong>Probability</strong></p>
+      <p>参数已经固定，问某个数据发生的概率是多少。</p>
+      <p>例：已知硬币正面概率 <code>p=0.6</code>，问 10 次里 7 次正面的概率。</p>
+    </section>
+    <section class="card">
+      <p><strong>Likelihood</strong></p>
+      <p>数据已经观察到了，反过来问哪个参数最能解释这些数据。</p>
+      <p>例：已知 10 次里 7 次正面，问 <code>p=0.5</code>、<code>p=0.7</code>、<code>p=0.9</code> 哪个更合理。</p>
+    </section>
+  </div>
+
+  <h2>2. 数学骨架</h2>
+  <p>有一批样本：</p>
+  <div class="formula">D = {x_1, x_2, ..., x_n}</div>
+  <p>模型带参数 <code>θ</code>，给每个样本一个概率：</p>
+  <div class="formula">p_θ(x_i)</div>
+  <p>如果先假设样本独立，整批数据发生的概率就是乘起来：</p>
+  <div class="formula">L(θ) = Π_i p_θ(x_i)</div>
+  <p>MLE 选择让这个乘积最大的参数：</p>
+  <div class="formula">θ_hat = argmax_θ L(θ)</div>
+  <p>实际优化时通常取 log，把乘法变加法：</p>
+  <div class="formula">log L(θ) = Σ_i log p_θ(x_i)</div>
+  <p>神经网络里习惯最小化 loss，所以取负号：</p>
+  <div class="formula">NLL(θ) = -Σ_i log p_θ(x_i)</div>
+
+  <h2>3. 和 makemore bigram 的关系</h2>
+  <p>在 bigram 里，一个样本不是整个人名，而是一个字符转移：</p>
+  <div class="formula">当前字符 c1 -> 下一个字符 c2</div>
+  <p>counting 模型直接从训练集统计：</p>
+  <div class="formula">P(c2 | c1) = count(c1, c2) / count(c1)</div>
+  <p>这本身就是 categorical / multinomial 模型下的 MLE：频率最高的转移，就被赋予更大的概率。</p>
+  <p>计算 loss 时仍然要遍历每一次真实出现的 bigram：</p>
+  <div class="formula">NLL = -mean_t log P(next_t | current_t)</div>
+  <p>这就是你前面看到的关键点：重复出现的 bigram 不是重复计算，而是在最大化整份数据的 likelihood。</p>
+
+  <h2>4. 为什么 neural net 也还是 MLE</h2>
+  <p>后面 neural bigram / MLP 不再直接用 counts 得到概率，而是：</p>
+  <div class="formula">input -> logits -> softmax -> probs</div>
+  <p>但 loss 没变，仍然是让真实下一个字符概率变大：</p>
+  <div class="formula">loss = -log P_θ(true_next_char | context)</div>
+  <p>区别只是：</p>
+  <table>
+    <thead><tr><th>模型</th><th>概率从哪里来</th><th>如何估计参数</th></tr></thead>
+    <tbody>
+      <tr><td>counting bigram</td><td>计数归一化</td><td>闭式解：count / row_sum</td></tr>
+      <tr><td>neural bigram / MLP</td><td>神经网络 softmax 输出</td><td>梯度下降：backward + update</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. 应用场景</h2>
+  <table>
+    <thead>
+      <tr><th>场景</th><th>MLE 在估计什么</th><th>直觉</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>硬币/点击率/转化率</td><td>Bernoulli 参数 <code>p</code></td><td>成功次数 / 总次数。</td></tr>
+      <tr><td>bigram / Markov 转移</td><td><code>P(next | current)</code></td><td>某行里各转移次数归一化。</td></tr>
+      <tr><td>正态分布</td><td>均值、方差</td><td>均值的 MLE 是样本均值。</td></tr>
+      <tr><td>线性回归</td><td>回归权重</td><td>若假设高斯噪声，最小二乘就是 MLE。</td></tr>
+      <tr><td>logistic / softmax 分类</td><td>分类边界参数</td><td>最小化 cross-entropy 等价于最大化真实标签概率。</td></tr>
+      <tr><td>语言模型</td><td>token 预测参数</td><td>最大化真实下一个 token 的概率。</td></tr>
+      <tr><td>Naive Bayes</td><td>词在类别下的概率</td><td>计数估计，但需要 smoothing 避免未见词概率为 0。</td></tr>
+      <tr><td>混合模型 / EM</td><td>带隐变量的分布参数</td><td>直接 MLE 难解时，用 EM 迭代提高 likelihood。</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6. 常见坑</h2>
+  <p><strong>未见事件概率为 0：</strong>如果某个 bigram 没出现，MLE 会给 0 概率；一旦测试时遇到它，<code>-log(0)</code> 就爆掉。所以会用 Laplace smoothing。</p>
+  <p><strong>模型太灵活会过拟合：</strong>MLE 只管训练数据 likelihood，不自动保证泛化。神经网络里需要 validation、regularization、early stopping。</p>
+  <p><strong>假设很重要：</strong>MLE 的结果依赖你选的概率模型。假设高斯噪声会导出最小二乘；假设 Bernoulli 会导出 logistic loss。</p>
+
+  <section class="practice">
+    <h2>小检查</h2>
+    <p>如果训练数据里 <code>a -> n</code> 出现 1000 次，<code>a -> z</code> 出现 2 次，计算 NLL 时应该怎么处理？</p>
+    <label><input type="radio" name="q" value="a"> 两种转移都只算一次，因为 probs 已经是频率了。</label><br>
+    <label><input type="radio" name="q" value="b"> 按出现次数算，<code>a -> n</code> 对 loss 的权重更大。</label><br>
+    <label><input type="radio" name="q" value="c"> 只算低频项，因为高频项已经学到了。</label><br>
+    <button onclick="check()">查看答案</button>
+    <div id="answer"></div>
+  </section>
+
+  <footer>
+    参考：
+    <a href="https://online.stat.psu.edu/stat415/lesson/1/1.2">Penn State STAT 415 MLE</a>，
+    <a href="https://www.statlect.com/fundamentals-of-statistics/maximum-likelihood">StatLect MLE</a>，
+    <a href="https://cs229.stanford.edu/notes2022fall/main_notes.pdf">Stanford CS229 Notes</a>。
+    有不清楚的地方，继续问我，我会按 makemore 的代码上下文拆。
+  </footer>
+</main>
+
+<script>
+  function check() {
+    const picked = document.querySelector('input[name="q"]:checked');
+    const answer = document.getElementById('answer');
+    if (!picked) {
+      answer.textContent = '先选一个。';
+      return;
+    }
+    answer.textContent = picked.value === 'b'
+      ? '对。MLE 是对整份样本序列求概率，重复出现的事件应当重复贡献 log 概率。'
+      : '不对。去重会丢掉频率信息，导致高频和低频事件权重相同。';
+  }
+</script>
+</body>
+</html>

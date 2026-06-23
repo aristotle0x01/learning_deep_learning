@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Makemore 学习地图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5d6875;
+      --line: #d9e0e7;
+      --paper: #ffffff;
+      --page: #f1f4f7;
+      --blue: #1769aa;
+      --green: #13795b;
+      --yellow: #fff6d6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+    }
+    main {
+      width: min(940px, calc(100% - 32px));
+      margin: 28px auto;
+      padding: 40px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    h1, h2 { line-height: 1.25; letter-spacing: 0; }
+    h1 { margin: 0 0 10px; font-size: 34px; }
+    h2 { margin-top: 34px; font-size: 23px; }
+    p { margin: 12px 0; }
+    a { color: var(--blue); }
+    .lede { color: var(--muted); font-size: 19px; }
+    .summary {
+      padding: 16px 18px;
+      border-left: 4px solid var(--blue);
+      background: #f4f8fb;
+      border-radius: 4px;
+    }
+    .path {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .node {
+      min-height: 116px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+    }
+    .node strong { display: block; margin-bottom: 6px; color: var(--blue); }
+    .bridge {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .bridge section {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+    }
+    .bridge strong { color: var(--blue); }
+    .takeaway {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f3f6f8; }
+    code { padding: 2px 5px; background: #edf2f6; border-radius: 4px; }
+    .practice {
+      margin-top: 30px;
+      padding: 18px;
+      background: var(--yellow);
+      border-radius: 6px;
+    }
+    .check { margin: 8px 0; }
+    button {
+      margin-top: 12px;
+      padding: 9px 13px;
+      border: 1px solid #8b949e;
+      border-radius: 5px;
+      background: white;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    #answer { margin-top: 12px; font-weight: 600; color: var(--green); }
+    footer { margin-top: 34px; color: var(--muted); font-size: 14px; }
+    @media (max-width: 760px) {
+      main { padding: 24px; }
+      .path { grid-template-columns: 1fr; }
+      .bridge { grid-template-columns: 1fr; }
+      table { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Makemore 学习地图</h1>
+  <p class="lede">目标不是先钻细节，而是知道每一讲在整个神经网络学习路径中承担什么角色。</p>
+
+  <section class="summary">
+    <p><strong>一句话：</strong>makemore 是 Karpathy 用“字符级生成名字”这件小事，逐步搭出语言模型训练的主线：从 bigram，到 MLP，到训练稳定性，到手写反传，再到 WaveNet 风格的深层结构。它前面接 micrograd，后面接 GPT。</p>
+  </section>
+
+  <h2>总路线</h2>
+  <div class="path">
+    <div class="node"><strong>micrograd</strong>先理解标量级自动求导、反向传播、loss 和参数更新。</div>
+    <div class="node"><strong>makemore</strong>把这些概念搬到字符级语言模型和 PyTorch Tensor 上。</div>
+    <div class="node"><strong>WaveNet-style</strong>从浅层 MLP 过渡到更深、更有层次的网络。</div>
+    <div class="node"><strong>GPT</strong>在语言模型框架上引入 self-attention 和 Transformer。</div>
+  </div>
+
+  <h2>1. 大体内容和解决问题</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>课程位置</th>
+        <th>大体内容</th>
+        <th>它解决什么问题</th>
+        <th>第一遍重点</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Lecture 1: micrograd</td>
+        <td>从零实现一个很小的自动求导引擎，用 <code>Value</code> 表示计算图节点。</td>
+        <td>先让你知道 <code>loss.backward()</code> 背后的链式法则和梯度累加，不然 makemore 后面的训练循环会像黑盒。</td>
+        <td>理解 forward、loss、backward、zero grad、step 这条训练循环。</td>
+      </tr>
+      <tr>
+        <td>Lecture 2: makemore Part 1, Bigram</td>
+        <td>用一个字符预测下一个字符；先用计数表，再把同一件事改写成 Tensor 训练。</td>
+        <td>建立语言模型的基本框架：输入上下文、预测下一个 token、采样、负对数似然 loss。这里开始把“生成文本”变成“分类下一个字符”。</td>
+        <td>抓住 <code>x -> logits -> probabilities -> loss</code>，不用纠结模型很弱。</td>
+      </tr>
+      <tr>
+        <td>Lecture 3: makemore Part 2, MLP</td>
+        <td>把 bigram 升级成多字符上下文：context window、embedding、hidden layer、softmax。</td>
+        <td>解决 bigram 只能看一个字符的问题；模型开始学习字符组合的连续表示，而不是只靠计数表。</td>
+        <td>看懂 embedding 是“字符 id 到向量”的查表，train/dev/test 是为了调参不污染 test。</td>
+      </tr>
+      <tr>
+        <td>Lecture 4: makemore Part 3, Activations, Gradients, BatchNorm</td>
+        <td>观察深层 MLP 的激活值和梯度分布，调整初始化，并引入 BatchNorm。</td>
+        <td>解释为什么神经网络不是“堆层数就能训好”：数值尺度不对，激活会饱和，梯度会过小/过大，训练会不稳定。</td>
+        <td>重点是诊断思路：看激活、看梯度、看参数更新比例，而不是死记 BatchNorm 公式。</td>
+      </tr>
+      <tr>
+        <td>Lecture 5: makemore Part 4, Backprop Ninja</td>
+        <td>不用 PyTorch autograd，手动推 cross entropy、linear、tanh、BatchNorm、embedding 的 Tensor 级反传。</td>
+        <td>把 micrograd 的标量反传升级到真实网络里的批量矩阵反传。以后看到 autograd 结果不对，知道从哪里怀疑。</td>
+        <td>第一遍知道“每一步 forward 都有对应 backward”即可，具体公式可以二刷。</td>
+      </tr>
+      <tr>
+        <td>Lecture 6: makemore Part 5, WaveNet</td>
+        <td>把 MLP 做深，变成类似 WaveNet 的层次结构，并更正式地使用 <code>torch.nn</code> 组织模型。</td>
+        <td>解决简单 MLP 对上下文处理太扁平的问题：让模型用层次化方式融合字符上下文，同时训练流程更接近真实项目。</td>
+        <td>重点跟住 shape：batch、time/context、channel/embedding 这些维度如何流动。</td>
+      </tr>
+      <tr>
+        <td>Lecture 7: GPT</td>
+        <td>从零实现 GPT。</td>
+        <td>makemore 已经给了语言模型、训练循环、embedding、采样、张量 shape 的基础，GPT 主要新增 self-attention 和 Transformer block。</td>
+        <td>学习时不要把 GPT 看成完全新东西，它仍然是在做“根据上下文预测下一个 token”。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. 联系和递进关系</h2>
+  <div class="bridge">
+    <section>
+      <p><strong>micrograd -> makemore</strong></p>
+      <p>micrograd 解决“梯度怎么来”；makemore 开始解决“把梯度用在真实一点的语言模型训练里”。前者是标量计算图，后者是 Tensor 计算图。</p>
+      <p class="takeaway">带走：训练不是魔法，就是 forward 得到 loss，backward 得到 grad，再更新参数。</p>
+    </section>
+    <section>
+      <p><strong>bigram -> MLP</strong></p>
+      <p>bigram 只看一个字符，像很短视的统计表；MLP 看多个字符，并把字符变成 embedding。模型从“数频率”进入“学习表示”。</p>
+      <p class="takeaway">带走：语言模型的核心任务没变，变的是上下文长度和参数化方式。</p>
+    </section>
+    <section>
+      <p><strong>MLP -> BatchNorm</strong></p>
+      <p>MLP 能训练后，下一步不是立刻换高级模型，而是先问：训练健康吗？激活是否饱和？梯度是否消失？更新是否过猛？</p>
+      <p class="takeaway">带走：深度学习工程里，诊断训练状态和模型结构本身一样重要。</p>
+    </section>
+    <section>
+      <p><strong>BatchNorm -> 手写反传</strong></p>
+      <p>BatchNorm 让 forward 复杂起来，也让 backward 更不直观。手写反传的目的不是日常替代 autograd，而是训练你能读懂梯度流。</p>
+      <p class="takeaway">带走：会用 PyTorch 是一层，知道它在链式法则上做什么是另一层。</p>
+    </section>
+    <section>
+      <p><strong>MLP -> WaveNet-style CNN</strong></p>
+      <p>普通 MLP 把多个字符 context 压平处理；WaveNet 风格结构用层次化方式组合邻近字符，再组合更大的局部片段。</p>
+      <p class="takeaway">带走：模型结构开始利用序列的局部层次，而不是只把 context 当一坨向量。</p>
+    </section>
+    <section>
+      <p><strong>makemore -> GPT</strong></p>
+      <p>GPT 的任务仍然是预测下一个 token。makemore 已经练过 token 化的雏形、embedding、logits、loss、采样、训练循环和 shape 管理。</p>
+      <p class="takeaway">带走：GPT 的新增核心是 self-attention/Transformer，不是重新发明语言模型任务。</p>
+    </section>
+  </div>
+
+  <h2>建议学习顺序</h2>
+  <p><strong>第一遍：</strong>按顺序看，目标是能说出每讲解决了上一讲的什么短板。</p>
+  <p><strong>第二遍：</strong>重点复现 notebook，尤其是 Part 2 的训练循环、Part 3 的诊断图、Part 5 的 shape 流动。</p>
+  <p><strong>遇到卡点：</strong>优先问三个问题：输入 shape 是什么？输出 logits 表示什么？loss 对哪个参数产生梯度？</p>
+
+  <h2>学习时抓住什么</h2>
+  <p>第一遍不要追求每个张量维度都立刻记住。更重要的是抓住这条主线：</p>
+  <div class="summary">
+    <p>数据如何变成训练样本 -> 模型如何给出下一字符概率 -> loss 如何衡量预测差距 -> backward 如何给参数梯度 -> optimizer 如何更新参数 -> 如何采样生成新名字。</p>
+  </div>
+
+  <section class="practice">
+    <h2>小检查</h2>
+    <p>下面哪句话最准确？</p>
+    <label class="check"><input type="radio" name="q" value="a"> makemore 主要是一个名字生成玩具，和 GPT 没太大关系。</label><br>
+    <label class="check"><input type="radio" name="q" value="b"> makemore 是用小数据和字符级任务，逐步练习语言模型、训练循环和网络结构，为 GPT 做准备。</label><br>
+    <label class="check"><input type="radio" name="q" value="c"> makemore 的重点是直接学习 Transformer。</label><br>
+    <button onclick="check()">查看答案</button>
+    <div id="answer"></div>
+  </section>
+
+  <footer>
+    主要依据：
+    <a href="https://github.com/karpathy/nn-zero-to-hero">Karpathy nn-zero-to-hero README</a>，
+    <a href="https://github.com/karpathy/makemore">makemore README</a>。
+    有不清楚的地方，直接问我，我会按这一张地图继续往下拆。
+  </footer>
+</main>
+
+<script>
+  function check() {
+    const picked = document.querySelector('input[name="q"]:checked');
+    const answer = document.getElementById('answer');
+    if (!picked) {
+      answer.textContent = '先选一个。';
+      return;
+    }
+    answer.textContent = picked.value === 'b'
+      ? '对。makemore 的价值是用一个小任务建立语言模型和神经网络训练的主线。'
+      : '不太准确。makemore 的任务看起来小，但它正是在为后面的 GPT 铺语言模型和训练基础。';
+  }
+</script>
+</body>
+</html>
