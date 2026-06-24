@@ -19,3 +19,11 @@
 #### 3.pytorch tensor 广播规则
 
 #### 4.基于计数方法时候使用maximum likelyhood的计算规则
+
+
+
+## MLP
+
+1.embedding 是如何得到的
+
+2.**curse of dimensionality**
